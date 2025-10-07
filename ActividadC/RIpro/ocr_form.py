@@ -8,7 +8,7 @@ from pyimagesearch.alignment.align_images import align_images
 # -----------------------------------------------------------------------------
 # Configuración de Tesseract
 # -----------------------------------------------------------------------------
-pytesseract.pytesseract.tesseract_cmd = r"C:\Program Files\Tesseract-OCR\tesseract.exe"
+#pytesseract.pytesseract.tesseract_cmd = r"C:\Program Files\Tesseract-OCR\tesseract.exe"
 
 
 # -----------------------------------------------------------------------------
@@ -35,8 +35,11 @@ def main():
     # -------------------------------------------------------------------------
     # 1. Cargar imágenes
     # -------------------------------------------------------------------------
+    #imagen = "/Users/juansebastiabramirezayala/Documents/ECI/9.Noveno_Semestre/Monitorias/Actividad1/image_alignment_project/images/payanesa.jpeg"
+    #imagen = "/Users/juansebastiabramirezayala/Documents/ECI/9.Noveno_Semestre/Monitorias/Actividad1/image_alignment_project/images/liqui.jpeg"
     template = cv2.imread("images/Template.jpg")
-    image = cv2.imread("images/input.jpg")
+    image = cv2.imread("images/input2.jpg")
+    #image = cv2.imread(imagen)
 
     if template is None or image is None:
         raise FileNotFoundError("No se encontraron las imágenes. Verifica las rutas.")
