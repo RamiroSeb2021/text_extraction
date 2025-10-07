@@ -7,7 +7,7 @@ ocr_block_roi,
 ocr_title_from_roi,
 extract_text_from_image
 )
-from pyimagesearch.alignment.align_images_Robust import align_images_robust
+from align_images_Robust import align_images_robust as align_images_Robust
 import cv2
 from collections import namedtuple
 from preProcessCodeImg import (preprocess_variant, 
@@ -160,7 +160,7 @@ template = r"plantilla/Plantilla_0.jpeg"
 
 img = cv2.imread(imagen)
 tmp = cv2.imread(template)
-aligned = align_images_robust(img, tmp)
+aligned = align_images_Robust(img, tmp)
 
 img_cut = []
 

@@ -7,6 +7,7 @@ import sys, os
 import sys, os
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 from align_document import align_images_robust
+from align_images_Robust import align_images_robust as align_images_Robust
 from ocr_form8 import preprocess_image_for_ocr, remove_horizontal_lines, mask_center_band
 from preProcessCodeImg import preprocess_variant, ocr_with_conf, detect_white_box
 from preProcesTest import read_numeric_code, preprocess_block_for_ocr, ocr_spanish_lines

@@ -2,8 +2,8 @@
 # python align_document.py --template form_w4.png --image scans/scan_01.jpg
 
 # import the necessary packages
-from pyimagesearch.alignment import align_images
-from pyimagesearch.alignment.align_images_Robust import align_images_robust
+from align_images import align_images as align_Images
+from align_images_Robust import align_images_robust as align_images_Robust
 import numpy as np
 import argparse
 import imutils
@@ -24,8 +24,8 @@ template = cv2.imread(args["template"])
 
 # align the images
 print("[INFO] aligning images...")
-aligned = align_images.align_images(image, template, debug=True)
-aligned_R = align_images_robust(image, template, debug=True)
+aligned = align_Images.align_images(image, template, debug=True)
+aligned_R = align_images_Robust(image, template, debug=True)
 
 # resize both the aligned and template images so we can easily
 # visualize them on our screen
