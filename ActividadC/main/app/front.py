@@ -6,7 +6,6 @@ import io
 import sys, os
 import sys, os
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
-from align_document import align_images_robust
 from align_images_Robust import align_images_robust as align_images_Robust
 from ocr_form8 import preprocess_image_for_ocr, remove_horizontal_lines, mask_center_band
 from preProcessCodeImg import preprocess_variant, ocr_with_conf, detect_white_box
@@ -43,7 +42,7 @@ if uploaded_files:
 
         # --- Alineación con plantilla ---
         template = cv2.imread(template_path)
-        aligned = align_images_robust(image, template)
+        aligned = align_images_Robust(image, template)
         col2.image(cv2.cvtColor(aligned, cv2.COLOR_BGR2RGB), caption="Imagen alineada", use_container_width=True)
 
         st.markdown("### Información extraída")

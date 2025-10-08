@@ -14,6 +14,11 @@ from preProcessCodeImg import (preprocess_variant,
                                ocr_with_conf,
                                detect_white_box)
 import pytesseract
+
+
+pytesseract.pytesseract.tesseract_cmd = r"C:\Program Files\Tesseract-OCR\tesseract.exe"
+
+print(pytesseract.get_tesseract_version())
 import numpy as np
 
 # incluye letras españolas + dígitos + puntuación básica
@@ -151,8 +156,8 @@ def read_numeric_code(roi_bgr, trim_border=4, mask_top_frac=0.22, debug=False):
 
 
 
-imagen = r"images/cayeno.jpeg"
-#imagen = r"images/imagen_1.jpeg"
+imagen = r"images/input.jpg"
+#imagen = r"images/input.jpeg"
 #imagen = r"images/urapan.jpeg"
 
 #imagen = r"images/liqui.jpeg"
