@@ -7,14 +7,13 @@ ocr_block_roi,
 ocr_title_from_roi,
 extract_text_from_image
 )
-from align_images_Robust import align_images_robust as align_images_Robust
+from align_images_Robust import align_images_robust as align_images_robust
 import cv2
 from collections import namedtuple
 from preProcessCodeImg import (preprocess_variant, 
                                ocr_with_conf,
                                detect_white_box)
 import pytesseract
-
 
 pytesseract.pytesseract.tesseract_cmd = r"C:\Program Files\Tesseract-OCR\tesseract.exe"
 
@@ -60,7 +59,7 @@ def ocr_spanish_lines(img_bin, psm=6, conf_min=55):
     cfg = (
         f"-l spa --oem 1 --psm {psm} "
         f"-c preserve_interword_spaces=1 "
-        f"-c tessedit_char_whitelist=\"{WHITELIST_ES}\" "
+        f"-c tessedit_char_whitelist={WHITELIST_ES}"
         f"-c tessedit_do_invert=0"
     )
     data = pytesseract.image_to_data(img_bin, config=cfg, output_type=pytesseract.Output.DICT)
@@ -90,6 +89,12 @@ def ocr_spanish_lines(img_bin, psm=6, conf_min=55):
 import cv2
 import numpy as np
 import pytesseract
+
+# Ruta absoluta al ejecutable de Tesseract
+pytesseract.pytesseract.tesseract_cmd = r"C:\Program Files\Tesseract-OCR\tesseract.exe"
+
+print(pytesseract.get_tesseract_version())
+
 
 def read_numeric_code(roi_bgr, trim_border=4, mask_top_frac=0.22, debug=False):
     """
@@ -154,178 +159,200 @@ def read_numeric_code(roi_bgr, trim_border=4, mask_top_frac=0.22, debug=False):
 
     return txt
 
+def preprocess_block_for_ocr(image):
+    """Aplica preprocesamiento al bloque antes de OCR"""
+    gray = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
+    _, bin_img = cv2.threshold(gray, 0, 255, cv2.THRESH_BINARY + cv2.THRESH_OTSU)
+    return bin_img
 
 
-imagen = r"images/input.jpg"
-#imagen = r"images/input.jpeg"
-#imagen = r"images/urapan.jpeg"
+def ocr_spanish_lines_v2(image, psm=6, conf_min=50):
+    """Realiza OCR línea por línea con filtro de confianza"""
+    custom_config = f'--oem 3 --psm {psm} -l spa'
+    data = pytesseract.image_to_data(image, config=custom_config, output_type=pytesseract.Output.DICT)
 
-#imagen = r"images/liqui.jpeg"
-template = r"plantilla/Plantilla_0.jpeg" 
+    lines = []
+    for i in range(len(data['text'])):
+        text = data['text'][i].strip()
+        conf = int(data['conf'][i]) if data['conf'][i].isdigit() else 0
+        if text and conf >= conf_min:
+            lines.append(text)
 
-img = cv2.imread(imagen)
-tmp = cv2.imread(template)
-aligned = align_images_Robust(img, tmp)
-
-img_cut = []
-
-# ROIs relativas: (x_pct, y_pct, w_pct, h_pct)
-OCRLocation = namedtuple("OCRLocation", ["id", "rel_bbox", "filter_keywords"])
-rois_rel = [
-    OCRLocation("codigo", (0.014, 0.040, 0.15, 0.16), ["codigo", ":"]),  # CÓDIGO (crudo)
-    OCRLocation("bloque_principal", (0.15, 0.20, 0.75, 0.60), []),       # Título + 3 líneas
-]
-
-h_al, w_al = aligned.shape[:2]
-
-def rel_to_abs(rel, w, h):
-    x_pct, y_pct, w_pct, h_pct = rel
-    return (int(x_pct * w), int(y_pct * h), int(w_pct * w), int(h_pct * h))
-
-vis = aligned.copy()
-#results = {}
-
-for loc in rois_rel:
-    x, y, ww, hh = rel_to_abs(loc.rel_bbox, w_al, h_al)
-    pad_top, pad_bottom, pad_left, pad_right = (2, 2, 2, 2)
-    x0 = max(0, x - pad_left)
-    y0 = max(0, y - pad_top)
-    x1 = min(w_al, x + ww + pad_right)
-    y1 = min(h_al, y + hh + pad_bottom)
-    roi = aligned[y0:y1, x0:x1]
-    img_cut.append(roi)
-    
+    return " ".join(lines)
 
 
+def read_numeric_code(image):
+    """Extrae números (por ejemplo, códigos o valores específicos)"""
+    custom_config = '--oem 3 --psm 7 -c tessedit_char_whitelist=0123456789'
+    text = pytesseract.image_to_string(image, config=custom_config)
+    return text.strip()
 
-def ocr_spanish_lines_v2(img_bin, psm=6, whitelist=WHITELIST_ES):
-    """
-    Realiza OCR en español y reconstruye el texto por líneas (manteniendo espacios).
-    img_bin: imagen binaria (texto negro, fondo blanco).
-    psm: 6 para párrafo; 7 si título; 8 para 'una palabra'.
-    Retorna: (texto_con_saltos, conf_media)
-    """
-    cfg = (
-        f"-l spa --oem 1 --psm {psm} "
-        f"-c preserve_interword_spaces=1 "
-        f"-c tessedit_char_whitelist=\"{whitelist}\" "
-        f"-c tessedit_do_invert=0"
-    )
+if __name__ == "__main__":
+    imagen = r"images/input.jpg"
+    #imagen = r"images/input.jpeg"
+    #imagen = r"images/urapan.jpeg"
 
-    data = pytesseract.image_to_data(img_bin, config=cfg, output_type=pytesseract.Output.DICT)
+    #imagen = r"images/liqui.jpeg"
+    template = r"plantilla/Plantilla_0.jpeg" 
 
-    # Reagrupar por línea (block, par, line) y ordenar por word_num
-    lines = {}
-    for i, word in enumerate(data["text"]):
-        if not word or not word.strip():
-            continue
-        conf = data["conf"][i]
-        try:
-            conf = float(conf)
-        except:
-            conf = -1.0
-        if conf < 0:
-            continue
+    img = cv2.imread(imagen)
+    tmp = cv2.imread(template)
+    aligned = align_images_robust(img, tmp)
 
-        key = (data["block_num"][i], data["par_num"][i], data["line_num"][i])
-        lines.setdefault(key, []).append((data["word_num"][i], word))
+    img_cut = []
 
-    # Orden y unión con espacios, preservando salto de línea
-    ordered_keys = sorted(lines.keys())
-    text_lines = []
-    for k in ordered_keys:
-        words_sorted = [w for _, w in sorted(lines[k], key=lambda t: t[0])]
-        text_lines.append(" ".join(words_sorted))
+    # ROIs relativas: (x_pct, y_pct, w_pct, h_pct)
+    OCRLocation = namedtuple("OCRLocation", ["id", "rel_bbox", "filter_keywords"])
+    rois_rel = [
+        OCRLocation("codigo", (0.014, 0.040, 0.15, 0.16), ["codigo", ":"]),  # CÓDIGO (crudo)
+        OCRLocation("bloque_principal", (0.15, 0.20, 0.75, 0.60), []),       # Título + 3 líneas
+    ]
 
-    # De-hifen automático (ej. "rosa-" + salto → "rosa")
-    text = "\n".join(text_lines)
-    text = text.replace("-\n", "")  # une palabras cortadas por guion al final de línea
+    h_al, w_al = aligned.shape[:2]
 
-    # confianza media
-    confs = []
-    for c in data["conf"]:
-        try:
-            cf = float(c)
-            if cf >= 0: confs.append(cf)
-        except:
-            pass
-    mean_conf = float(np.mean(confs)) if confs else -1.0
+    def rel_to_abs(rel, w, h):
+        x_pct, y_pct, w_pct, h_pct = rel
+        return (int(x_pct * w), int(y_pct * h), int(w_pct * w), int(h_pct * h))
 
-    return text.strip(), mean_conf
+    vis = aligned.copy()
+    #results = {}
 
-    
-# Procesar bloque
+    for loc in rois_rel:
+        x, y, ww, hh = rel_to_abs(loc.rel_bbox, w_al, h_al)
+        pad_top, pad_bottom, pad_left, pad_right = (2, 2, 2, 2)
+        x0 = max(0, x - pad_left)
+        y0 = max(0, y - pad_top)
+        x1 = min(w_al, x + ww + pad_right)
+        y1 = min(h_al, y + hh + pad_bottom)
+        roi = aligned[y0:y1, x0:x1]
+        img_cut.append(roi)
+        
 
 
 
+    def ocr_spanish_lines_v2(img_bin, psm=6, whitelist=WHITELIST_ES):
+        """
+        Realiza OCR en español y reconstruye el texto por líneas (manteniendo espacios).
+        img_bin: imagen binaria (texto negro, fondo blanco).
+        psm: 6 para párrafo; 7 si título; 8 para 'una palabra'.
+        Retorna: (texto_con_saltos, conf_media)
+        """
+        cfg = (
+            f"-l spa --oem 1 --psm {psm} "
+            f"-c preserve_interword_spaces=1 "
+            f"-c tessedit_char_whitelist=\"{whitelist}\" "
+            f"-c tessedit_do_invert=0"
+        )
 
-# B) Robusto (binariza + quita subrayado + bordes + punticos)
-bin_block = preprocess_image_for_ocr(img_cut[1])
+        data = pytesseract.image_to_data(img_bin, config=cfg, output_type=pytesseract.Output.DICT)
 
-config = "--oem 1 --psm 6 -l spa"  
-texto = pytesseract.image_to_string(bin_block, config=config)
-print("extraccion texto bloque normal")
-print(texto, "\n")
-print("Texto con preprocesamiento:")
+        # Reagrupar por línea (block, par, line) y ordenar por word_num
+        lines = {}
+        for i, word in enumerate(data["text"]):
+            if not word or not word.strip():
+                continue
+            conf = data["conf"][i]
+            try:
+                conf = float(conf)
+            except:
+                conf = -1.0
+            if conf < 0:
+                continue
 
-# ========= USO CON TU ROI =========
-roi_bgr = img_cut[1]                         # bloque principal (BGR crudo)
-bin_block_title = preprocess_block_for_ocr(roi_bgr, title=True)
-bin_block_ = preprocess_block_for_ocr(roi_bgr)
+            key = (data["block_num"][i], data["par_num"][i], data["line_num"][i])
+            lines.setdefault(key, []).append((data["word_num"][i], word))
 
-# separa título (~top 28%) y cuerpo (resto)
-h_t = bin_block_title.shape[0]
-h_b = bin_block_.shape[0]
-bin_top  = bin_block_title[:int(h_t*0.28), :]
-bin_body = bin_block_[int(h_b*0.28):, :]
+        # Orden y unión con espacios, preservando salto de línea
+        ordered_keys = sorted(lines.keys())
+        text_lines = []
+        for k in ordered_keys:
+            words_sorted = [w for _, w in sorted(lines[k], key=lambda t: t[0])]
+            text_lines.append(" ".join(words_sorted))
 
-# OCR
-titulo   = ocr_spanish_lines(bin_top,  psm=7, conf_min=55)  # una línea
-bloque   = ocr_spanish_lines(bin_body, psm=6, conf_min=25)  # párrafo
+        # De-hifen automático (ej. "rosa-" + salto → "rosa")
+        text = "\n".join(text_lines)
+        text = text.replace("-\n", "")  # une palabras cortadas por guion al final de línea
 
-print("Título:\n", titulo)
-print("Bloque:\n", bloque, "\n")
+        # confianza media
+        confs = []
+        for c in data["conf"]:
+            try:
+                cf = float(c)
+                if cf >= 0: confs.append(cf)
+            except:
+                pass
+        mean_conf = float(np.mean(confs)) if confs else -1.0
+
+        return text.strip(), mean_conf
+
+        
+    # Procesar bloque
+
+    # B) Robusto (binariza + quita subrayado + bordes + punticos)
+    bin_block = preprocess_image_for_ocr(img_cut[1])
+
+    config = "--oem 1 --psm 6 -l spa"  
+    texto = pytesseract.image_to_string(bin_block, config=config)
+    print("extraccion texto bloque normal")
+    print(texto, "\n")
+    print("Texto con preprocesamiento:")
+
+    # ========= USO CON TU ROI =========
+    roi_bgr = img_cut[1]                         # bloque principal (BGR crudo)
+    bin_block_title = preprocess_block_for_ocr(roi_bgr, title=True)
+    bin_block_ = preprocess_block_for_ocr(roi_bgr)
+
+    # separa título (~top 28%) y cuerpo (resto)
+    h_t = bin_block_title.shape[0]
+    h_b = bin_block_.shape[0]
+    bin_top  = bin_block_title[:int(h_t*0.28), :]
+    bin_body = bin_block_[int(h_b*0.28):, :]
+
+    # OCR
+    titulo   = ocr_spanish_lines(bin_top,  psm=7, conf_min=55)  # una línea
+    bloque   = ocr_spanish_lines(bin_body, psm=6, conf_min=25)  # párrafo
+
+    print("Título:\n", titulo)
+    print("Bloque:\n", bloque, "\n")
 
 
-# # 2) (Opcional) Quitar subrayados largos
-# clean = remove_horizontal_lines(clean_img, min_frac=0.18)
+    # # 2) (Opcional) Quitar subrayados largos
+    # clean = remove_horizontal_lines(clean_img, min_frac=0.18)
 
-# # 3) >>> Aquí va mask_center_band <<<
-# center = mask_center_band(clean, left_margin=0.08, right_margin=0.08)
+    # # 3) >>> Aquí va mask_center_band <<<
+    # center = mask_center_band(clean, left_margin=0.08, right_margin=0.08)
 
-# # 4) (Opcional) Remover punticos residuales
-# center_np = remove_speckles_opening(center, k=3, it=1)
-
-
-# Procesar codigo
+    # # 4) (Opcional) Remover punticos residuales
+    # center_np = remove_speckles_opening(center, k=3, it=1)
 
 
+    # Procesar codigo
 
-variant2 = {"name":"clahe_otsu",
-            "crop_green":False,
-            "clahe":True,
-            "thr_type":"otsu",
-            "invert":False,
-            "rm_blobs":True}
+    variant2 = {"name":"clahe_otsu",
+                "crop_green":False,
+                "clahe":True,
+                "thr_type":"otsu",
+                "invert":False,
+                "rm_blobs":True}
 
-CodeProcessed_img = preprocess_variant(img_cut[0], variant2)
-roi_codigo = CodeProcessed_img  # tu ROI del código
-crop_code, (x0,y0,x1,y1), mask = detect_white_box(roi_codigo, margin=4, debug=False)
-crop_code = remove_speckles_cc(crop_code)
-cv2.imshow("Rectángulo blanco recortado", crop_code)
-cv2.imwrite("codigo.jpg", crop_code)
-# Extraer texto codigo
-text2 = read_numeric_code(crop_code, trim_border=5, mask_top_frac=0.25, debug=False)
-text, conf = ocr_with_conf(crop_code, psm=6, whitelist="0123456789")
-print("El número que reconocio es:",text)
-print("El número2 que reconocio es:",text2)
-cv2.imshow("1 binario", bin_block)
-cv2.imshow("2 binario", img_cut[0])
-#cv2.imshow("1 codigo", CodeProcessed_img)
-# cv2.imshow("2 sin subrayados", clean)
-# cv2.imshow("3 centrado sin bordes", center)
-# cv2.imshow("4 centrado + opening", center_np)
-#cv2.imshow("5 bloque", img_cut[0])
-#cv2.imshow("6 codigo", img_cut[1])
-cv2.waitKey(0); cv2.destroyAllWindows()
+    CodeProcessed_img = preprocess_variant(img_cut[0], variant2)
+    roi_codigo = CodeProcessed_img  # tu ROI del código
+    crop_code, (x0,y0,x1,y1), mask = detect_white_box(roi_codigo, margin=4, debug=False)
+    crop_code = remove_speckles_cc(crop_code)
+    cv2.imshow("Rectángulo blanco recortado", crop_code)
+    cv2.imwrite("codigo.jpg", crop_code)
+    # Extraer texto codigo
+    text2 = read_numeric_code(crop_code, trim_border=5, mask_top_frac=0.25, debug=False)
+    text, conf = ocr_with_conf(crop_code, psm=6, whitelist="0123456789")
+    print("El número que reconocio es:",text)
+    print("El número2 que reconocio es:",text2)
+    cv2.imshow("1 binario", bin_block)
+    cv2.imshow("2 binario", img_cut[0])
+    #cv2.imshow("1 codigo", CodeProcessed_img)
+    # cv2.imshow("2 sin subrayados", clean)
+    # cv2.imshow("3 centrado sin bordes", center)
+    # cv2.imshow("4 centrado + opening", center_np)
+    #cv2.imshow("5 bloque", img_cut[0])
+    #cv2.imshow("6 codigo", img_cut[1])
+    cv2.waitKey(0); cv2.destroyAllWindows()
 

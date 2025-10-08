@@ -15,7 +15,7 @@ import numpy as np
 import pytesseract
 
 #from pyimagesearch.alignment import align_images
-from align_images_Robust import align_images_robust as align_images_Robust
+from align_images_Robust import align_images_robust as align_images_robust
 
 
 # -------------------- Utilidades generales -------------------- #
@@ -142,7 +142,7 @@ def main():
     # Alineación
     if args["align"]:
         print("[INFO] aligning images...")
-        aligned = align_images_Robust(scanned, template, debug=args["visualize"])
+        aligned = align_images_robust(scanned, template, debug=args["visualize"])
         if aligned is None:
             print("[ERROR] No se pudo alinear. Uso imagen original.")
             aligned = scanned
