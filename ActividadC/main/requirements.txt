@@ -4,3 +4,4 @@ pytesseract>=0.3.10
 numpy>=1.26.0
 Pillow>=10.0.0
 matplotlib>=3.9.0
+imutils==0.5.4
